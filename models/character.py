@@ -25,6 +25,18 @@ class Character(BaseModel):
     age: int = Field(..., description="Character's age", ge=0)
     gender: Gender = Field(..., description="Character's gender")
     role: str = Field(..., description="Character's role (e.g., companion, mentor)")
+
+    # Relationship to user or other characters
+    relationship: Optional[str] = Field(
+        default=None,
+        description="Relationship to the user or other characters (ally, rival, mentor, etc.)",
+    )
+
+    # Current mood / emotional state
+    mood: Dict[str, float] = Field(
+        default_factory=lambda: {"optimism": 0.5, "patience": 0.5},
+        description="Current mood levels on a 0-1 scale",
+    )
     
     # Core personality traits (0-1 scale)
     personality: Dict[str, float] = Field(
@@ -87,16 +99,24 @@ class Character(BaseModel):
         # Combine all personality descriptions
         all_traits = core_traits + custom_traits
         personality_str = ", ".join(all_traits)
-        
+
         # Format additional traits
         traits_str = ", ".join(self.traits) if self.traits else "none specified"
-        
+
+        # Format mood
+        mood_str = ", ".join(
+            [f"{m.title()} ({self.format_trait_level(v)})" for m, v in self.mood.items()]
+        )
+
+        relationship_line = f"Relationship: {self.relationship}\n" if self.relationship else ""
+
         prompt = f"""Name: {self.name}
 Age: {self.age}
 Gender: {self.gender.value}
 Role: {self.role}
-Personality: {personality_str}
+{relationship_line}Personality: {personality_str}
 Traits: {traits_str}
+Mood: {mood_str}
 Voice/Tone: {self.voice_tone.value}
 
 Backstory:
@@ -133,11 +153,13 @@ Backstory:
                     "age": 45,
                     "gender": "female",
                     "role": "mentor",
+                    "relationship": "mentor",
                     "personality": {
                         "empathy": 0.8,
                         "humor": 0.3,
                         "formality": 0.9
                     },
+                    "mood": {"optimism": 0.7, "patience": 0.8},
                     "custom_traits": {
                         "intelligence": 0.9,
                         "patience": 0.8,

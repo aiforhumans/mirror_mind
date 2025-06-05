@@ -93,6 +93,52 @@ Rules of this world:
 {% endfor %}
 {% endif %}""",
 
+        "two_characters_and_scenario": """You are {{ character.name }} and {{ character2.name }} in {{ scenario.setting }} during {{ scenario.time_period }}.
+{% if character.relationship %}
+Relationship: {{ character.relationship }} with {{ character2.name }}.
+{% endif %}
+{% if character.personality or character.custom_traits %}
+{{ character.name }}'s personality:
+{% for trait, value in character.personality.items() %}
+- {{ trait.title() }}: {{ format_trait_level(value) }}
+{% endfor %}
+{% for trait, value in character.custom_traits.items() %}
+- {{ trait.title() }}: {{ format_trait_level(value) }}
+{% endfor %}
+{% endif %}
+{% if character2.personality or character2.custom_traits %}
+{{ character2.name }}'s personality:
+{% for trait, value in character2.personality.items() %}
+- {{ trait.title() }}: {{ format_trait_level(value) }}
+{% endfor %}
+{% for trait, value in character2.custom_traits.items() %}
+- {{ trait.title() }}: {{ format_trait_level(value) }}
+{% endfor %}
+{% endif %}
+
+Your joint objective is to {{ scenario.objective }}.
+{% if scenario.conflict %}
+Current situation: {{ scenario.conflict }}
+{% endif %}
+{% if scenario.rules %}
+Rules of this world:
+{% for rule in scenario.rules %}
+- {{ rule }}
+{% endfor %}
+{% endif %}""",
+
+        "adventure": """You are {{ character.name }}, embarking on a grand adventure in {{ scenario.setting }}.
+Your mission is to {{ scenario.objective }}.
+Keep the tone thrilling and courageous.""",
+
+        "romance": """You are {{ character.name }}, navigating romantic tension in {{ scenario.setting }}.
+Objective: {{ scenario.objective }}.
+Maintain a heartfelt and emotional atmosphere.""",
+
+        "mystery": """You are {{ character.name }}, drawn into a mystery in {{ scenario.setting }}.
+Objective: {{ scenario.objective }}.
+Keep the tone suspenseful and inquisitive.""",
+
         "default": """You are a helpful AI assistant."""
     }
     
@@ -132,7 +178,8 @@ Rules of this world:
         character: Optional[Character] = None,
         scenario: Optional[Scenario] = None,
         template_name: Optional[str] = None,
-        additional_instructions: str = ""
+        additional_instructions: str = "",
+        character2: Optional[Character] = None,
     ) -> str:
         """Generate a prompt using Jinja2 templates"""
         
@@ -143,7 +190,9 @@ Rules of this world:
             template_key = template_name
         else:
             # Auto-select template based on available data
-            if character and scenario:
+            if character and character2 and scenario:
+                template_key = "two_characters_and_scenario"
+            elif character and scenario:
                 template_key = "character_and_scenario"
             elif character:
                 template_key = "character_only"
@@ -158,7 +207,8 @@ Rules of this world:
         # Prepare template context
         context = {
             'character': character,
-            'scenario': scenario
+            'character2': character2,
+            'scenario': scenario,
         }
         
         # Render the main prompt
