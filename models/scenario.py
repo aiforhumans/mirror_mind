@@ -28,18 +28,35 @@ World Rules:
 
         return prompt
 
+    def add_rule(self, rule: str) -> None:
+        """Add a new rule to the scenario"""
+        if rule.strip() and rule not in self.rules:
+            self.rules.append(rule.strip())
+
+    def remove_rule(self, index: int) -> None:
+        """Remove a rule by index"""
+        if 0 <= index < len(self.rules):
+            self.rules.pop(index)
+
+    def update_rule(self, index: int, new_rule: str) -> None:
+        """Update a rule at the given index"""
+        if 0 <= index < len(self.rules) and new_rule.strip():
+            self.rules[index] = new_rule.strip()
+
     model_config = {
         "json_schema_extra": {
-            "examples": [{
-                "setting": "A mystical academy for magical arts",
-                "time_period": "Medieval fantasy era",
-                "objective": "Guide students through their magical education",
-                "conflict": "Dark forces threaten the academy's ancient protective barriers",
-                "rules": [
-                    "Magic has consequences and requires careful study",
-                    "Students must respect the ancient traditions",
-                    "No magic should be used to harm others"
-                ]
-            }]
+            "examples": [
+                {
+                    "setting": "A mystical academy for magical arts",
+                    "time_period": "Medieval fantasy era",
+                    "objective": "Guide students through their magical education",
+                    "conflict": "Dark forces threaten the academy's ancient protective barriers",
+                    "rules": [
+                        "Magic has consequences and requires careful study",
+                        "Students must respect the ancient traditions",
+                        "No magic should be used to harm others"
+                    ]
+                }
+            ]
         }
     }

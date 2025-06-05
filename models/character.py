@@ -1,69 +1,152 @@
 from pydantic import BaseModel, Field
-from typing import Dict, List
+from typing import Dict, List, Optional
+from enum import Enum
+
+class Gender(str, Enum):
+    FEMALE = "female"
+    MALE = "male"
+    NON_BINARY = "non-binary"
+    OTHER = "other"
+
+class VoiceTone(str, Enum):
+    WARM = "warm"
+    PROFESSIONAL = "professional"
+    CASUAL = "casual"
+    SARCASTIC = "sarcastic"
+    MYSTERIOUS = "mysterious"
+    CHEERFUL = "cheerful"
+    SERIOUS = "serious"
+    FRIENDLY = "friendly"
+    FORMAL = "formal"
+    PLAYFUL = "playful"
 
 class Character(BaseModel):
     name: str = Field(..., description="Character's name")
     age: int = Field(..., description="Character's age", ge=0)
-    gender: str = Field(..., description="Character's gender")
+    gender: Gender = Field(..., description="Character's gender")
     role: str = Field(..., description="Character's role (e.g., companion, mentor)")
+    
+    # Core personality traits (0-1 scale)
     personality: Dict[str, float] = Field(
         default_factory=lambda: {
             "empathy": 0.5,
             "humor": 0.5,
             "formality": 0.5
         },
-        description="Personality traits with values from 0 to 1"
+        description="Core personality traits with values from 0 to 1"
     )
+    
+    # Custom personality traits
+    custom_traits: Dict[str, float] = Field(
+        default_factory=dict,
+        description="Custom personality traits with values from 0 to 1"
+    )
+    
     traits: List[str] = Field(
         default_factory=list,
         description="List of character traits"
     )
+    
     backstory: str = Field(
         default="",
         description="Character's backstory and history"
     )
-    voice_tone: str = Field(
-        default="neutral",
-        description="Character's voice/tone (e.g., warm, sarcastic)"
+    
+    voice_tone: VoiceTone = Field(
+        default=VoiceTone.WARM,
+        description="Character's voice/tone"
     )
+
+    def format_trait_level(self, value: float) -> str:
+        """Format a trait value into a descriptive level"""
+        if value > 0.8:
+            return "very high"
+        elif value > 0.6:
+            return "high"
+        elif value > 0.4:
+            return "moderate"
+        elif value > 0.2:
+            return "low"
+        else:
+            return "very low"
 
     def generate_prompt_section(self) -> str:
         """Generate the character section of the system prompt"""
-        personality_traits = [
-            f"{trait} ({value:.1f}/1.0)"
+        # Format core personality traits
+        core_traits = [
+            f"{trait.title()} ({self.format_trait_level(value)})"
             for trait, value in self.personality.items()
         ]
         
+        # Format custom traits
+        custom_traits = [
+            f"{trait.title()} ({self.format_trait_level(value)})"
+            for trait, value in self.custom_traits.items()
+        ]
+        
+        # Combine all personality descriptions
+        all_traits = core_traits + custom_traits
+        personality_str = ", ".join(all_traits)
+        
+        # Format additional traits
         traits_str = ", ".join(self.traits) if self.traits else "none specified"
         
         prompt = f"""Name: {self.name}
 Age: {self.age}
-Gender: {self.gender}
+Gender: {self.gender.value}
 Role: {self.role}
-Personality: {', '.join(personality_traits)}
+Personality: {personality_str}
 Traits: {traits_str}
-Voice/Tone: {self.voice_tone}
+Voice/Tone: {self.voice_tone.value}
 
 Backstory:
 {self.backstory}"""
 
         return prompt
 
+    @classmethod
+    def get_predefined_traits(cls) -> List[str]:
+        """Get list of predefined personality traits that can be added"""
+        return [
+            "confidence",
+            "creativity",
+            "curiosity",
+            "decisiveness",
+            "enthusiasm",
+            "independence",
+            "intelligence",
+            "leadership",
+            "optimism",
+            "patience",
+            "perfectionism",
+            "reliability",
+            "risk-taking",
+            "sociability",
+            "wisdom"
+        ]
+
     model_config = {
         "json_schema_extra": {
-            "examples": [{
-                "name": "Professor Ada",
-                "age": 45,
-                "gender": "female",
-                "role": "mentor",
-                "personality": {
-                    "empathy": 0.8,
-                    "humor": 0.3,
-                    "formality": 0.9
-                },
-                "traits": ["brilliant", "patient", "detail-oriented"],
-                "backstory": "A renowned AI researcher who dedicated her life to teaching machines ethics and empathy.",
-                "voice_tone": "warm and professional"
-            }]
+            "examples": [
+                {
+                    "name": "Professor Ada",
+                    "age": 45,
+                    "gender": "female",
+                    "role": "mentor",
+                    "personality": {
+                        "empathy": 0.8,
+                        "humor": 0.3,
+                        "formality": 0.9
+                    },
+                    "custom_traits": {
+                        "intelligence": 0.9,
+                        "patience": 0.8,
+                        "curiosity": 0.7
+                    },
+                    "traits": ["brilliant", "patient", "detail-oriented"],
+                    "backstory": "A renowned AI researcher who dedicated her life to teaching machines ethics and empathy.",
+                    "voice_tone": "warm"
+                }
+            ]
         }
     }

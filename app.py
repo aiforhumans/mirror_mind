@@ -7,7 +7,7 @@ from typing import List, Tuple, Optional
 
 from utils.storage import Storage
 from utils.prompt_generator import PromptGenerator
-from models.character import Character
+from models.character import Character, Gender, VoiceTone
 from models.scenario import Scenario
 from models.prompt_pack import PromptPack
 
@@ -37,7 +37,7 @@ class LMStudioChat:
     def chat_with_lm_studio(
         self, 
         message: str, 
-        history: List[Tuple[str, str]], 
+        history: List[dict], 
         system_message: str,
         model: str,
         temperature: float,
@@ -56,10 +56,8 @@ class LMStudioChat:
                 messages.append({"role": "system", "content": system_message})
             
             # Add conversation history
-            for user_msg, assistant_msg in history:
-                messages.append({"role": "user", "content": user_msg})
-                if assistant_msg:
-                    messages.append({"role": "assistant", "content": assistant_msg})
+            for msg in history:
+                messages.append(msg)
             
             # Add current user message
             messages.append({"role": "user", "content": message})
@@ -79,20 +77,22 @@ class LMStudioChat:
             # Extract response
             response = completion.choices[0].message.content
             
-            # Update history
-            history.append((message, response))
+            # Update history with user message and assistant response
+            history.append({"role": "user", "content": message})
+            history.append({"role": "assistant", "content": response})
             
             return history, ""
             
         except Exception as e:
             error_msg = f"Error: {str(e)}"
-            history.append((message, error_msg))
+            history.append({"role": "user", "content": message})
+            history.append({"role": "assistant", "content": error_msg})
             return history, ""
     
     def stream_chat_with_lm_studio(
         self, 
         message: str, 
-        history: List[Tuple[str, str]], 
+        history: List[dict], 
         system_message: str,
         model: str,
         temperature: float,
@@ -111,16 +111,15 @@ class LMStudioChat:
                 messages.append({"role": "system", "content": system_message})
             
             # Add conversation history
-            for user_msg, assistant_msg in history:
-                messages.append({"role": "user", "content": user_msg})
-                if assistant_msg:
-                    messages.append({"role": "assistant", "content": assistant_msg})
+            for msg in history:
+                messages.append(msg)
             
             # Add current user message
             messages.append({"role": "user", "content": message})
             
             # Add user message to history immediately
-            history.append((message, ""))
+            history.append({"role": "user", "content": message})
+            history.append({"role": "assistant", "content": ""})
             
             # Make streaming API call to LM Studio
             stream = self.client.chat.completions.create(
@@ -140,28 +139,30 @@ class LMStudioChat:
                 if chunk.choices[0].delta.content is not None:
                     partial_response += chunk.choices[0].delta.content
                     # Update the last message in history with partial response
-                    history[-1] = (message, partial_response)
+                    history[-1]["content"] = partial_response
                     yield history, ""
             
         except Exception as e:
             error_msg = f"Error: {str(e)}"
-            if history and history[-1][0] == message:
-                history[-1] = (message, error_msg)
+            if history and history[-1]["role"] == "assistant":
+                history[-1]["content"] = error_msg
             else:
-                history.append((message, error_msg))
+                history.append({"role": "user", "content": message})
+                history.append({"role": "assistant", "content": error_msg})
             yield history, ""
 
 def create_chat_interface():
-    """Create the Gradio chat interface with persona and scenario features"""
+    """Create the Gradio chat interface with enhanced persona and scenario features"""
     chat_bot = LMStudioChat()
     storage = Storage()
+    prompt_generator = PromptGenerator()
     
     # Get available models
     available_models = chat_bot.get_available_models()
     
-    with gr.Blocks(title="LM Studio Chat with Personas", theme=gr.themes.Soft()) as demo:
-        gr.Markdown("# 🤖 LM Studio Chat with AI Personas & Scenarios")
-        gr.Markdown("Create AI characters and immersive scenarios for enhanced conversations")
+    with gr.Blocks(title="LM Studio Chat with Enhanced Personas", theme=gr.themes.Soft()) as demo:
+        gr.Markdown("# 🤖 LM Studio Chat with Enhanced AI Personas & Scenarios")
+        gr.Markdown("Create detailed AI characters and immersive scenarios with advanced templating and optimization")
         
         with gr.Tabs():
             # Chat Tab
@@ -172,7 +173,8 @@ def create_chat_interface():
                         chatbot = gr.Chatbot(
                             height=500,
                             show_label=False,
-                            container=True
+                            container=True,
+                            type='messages'
                         )
                         
                         with gr.Row():
@@ -267,35 +269,62 @@ def create_chat_interface():
                         refresh_models_btn = gr.Button("🔄 Refresh Models", variant="secondary")
                         refresh_packs_btn = gr.Button("🔄 Refresh Packs", variant="secondary")
             
-            # Character Creator Tab
-            with gr.TabItem("👤 Character Creator"):
-                gr.Markdown("### Create AI Character Personas")
+            # Enhanced Character Creator Tab
+            with gr.TabItem("👤 Enhanced Character Creator"):
+                gr.Markdown("### Create Detailed AI Character Personas")
                 
                 with gr.Row():
                     with gr.Column():
                         char_name = gr.Textbox(label="Name", placeholder="e.g., Professor Ada")
                         char_age = gr.Number(label="Age", value=30, minimum=0)
-                        char_gender = gr.Textbox(label="Gender", placeholder="e.g., female, male, non-binary")
+                        
+                        # Enhanced gender dropdown
+                        char_gender = gr.Dropdown(
+                            choices=[g.value for g in Gender],
+                            label="Gender",
+                            value=Gender.FEMALE.value
+                        )
+                        
                         char_role = gr.Dropdown(
-                            choices=["companion", "mentor", "adversary", "assistant", "teacher", "friend", "guide"],
+                            choices=["companion", "mentor", "adversary", "assistant", "teacher", "friend", "guide", "expert", "storyteller", "lover", "romantic partner"],
                             label="Role",
                             value="companion"
                         )
                         
-                        gr.Markdown("#### Personality Traits (0.0 - 1.0)")
+                        # Enhanced voice tone dropdown
+                        char_voice_tone = gr.Dropdown(
+                            choices=[v.value for v in VoiceTone],
+                            label="Voice/Tone",
+                            value=VoiceTone.WARM.value
+                        )
+                        
+                        gr.Markdown("#### Core Personality Traits (0.0 - 1.0)")
                         char_empathy = gr.Slider(0.0, 1.0, 0.5, label="Empathy")
                         char_humor = gr.Slider(0.0, 1.0, 0.5, label="Humor")
                         char_formality = gr.Slider(0.0, 1.0, 0.5, label="Formality")
                         
-                        char_traits = gr.Textbox(
-                            label="Traits (comma-separated)",
-                            placeholder="e.g., wise, patient, curious"
+                        gr.Markdown("#### Custom Personality Traits")
+                        
+                        # Dynamic trait management
+                        with gr.Group():
+                            custom_trait_name = gr.Dropdown(
+                                choices=Character.get_predefined_traits(),
+                                label="Add Trait",
+                                allow_custom_value=True
+                            )
+                            custom_trait_value = gr.Slider(0.0, 1.0, 0.5, label="Trait Level")
+                            add_trait_btn = gr.Button("➕ Add Trait", variant="secondary")
+                        
+                        # Display current custom traits
+                        custom_traits_display = gr.Textbox(
+                            label="Current Custom Traits",
+                            interactive=False,
+                            lines=3
                         )
                         
-                        char_voice_tone = gr.Dropdown(
-                            choices=["warm", "professional", "casual", "sarcastic", "mysterious", "cheerful", "serious"],
-                            label="Voice/Tone",
-                            value="warm"
+                        char_traits = gr.Textbox(
+                            label="Additional Traits (comma-separated)",
+                            placeholder="e.g., wise, patient, curious"
                         )
                     
                     with gr.Column():
@@ -305,11 +334,18 @@ def create_chat_interface():
                             placeholder="Describe the character's background, history, and motivations..."
                         )
                         
-                        # Character preview
+                        # Enhanced character preview with validation
                         char_preview = gr.Textbox(
                             label="Character Prompt Preview",
-                            lines=10,
+                            lines=12,
                             interactive=False
+                        )
+                        
+                        # Completeness indicator
+                        char_completeness = gr.Textbox(
+                            label="Character Completeness",
+                            interactive=False,
+                            lines=2
                         )
                         
                         # Save/Load controls
@@ -322,9 +358,9 @@ def create_chat_interface():
                             load_char_btn = gr.Button("📂 Load")
                             delete_char_btn = gr.Button("🗑️ Delete", variant="stop")
             
-            # Scenario Designer Tab
-            with gr.TabItem("🌍 Scenario Designer"):
-                gr.Markdown("### Create Immersive Scenarios")
+            # Enhanced Scenario Designer Tab
+            with gr.TabItem("🌍 Enhanced Scenario Designer"):
+                gr.Markdown("### Create Immersive Scenarios with Dynamic Rules")
                 
                 with gr.Row():
                     with gr.Column():
@@ -344,18 +380,43 @@ def create_chat_interface():
                             label="Conflict/Tension",
                             placeholder="e.g., ancient evil awakening, corporate conspiracy"
                         )
-                        scenario_rules = gr.Textbox(
-                            label="Rules (one per line)",
-                            lines=5,
-                            placeholder="e.g., Magic has consequences\nNo breaking character\nStay in medieval setting"
+                        
+                        gr.Markdown("#### Dynamic Rules Management")
+                        
+                        # Dynamic rule list component
+                        with gr.Group():
+                            new_rule = gr.Textbox(
+                                label="Add New Rule",
+                                placeholder="Enter a rule or limitation"
+                            )
+                            add_rule_btn = gr.Button("➕ Add Rule", variant="secondary")
+                        
+                        # Current rules display with edit/delete options
+                        rules_display = gr.Textbox(
+                            label="Current Rules",
+                            lines=6,
+                            interactive=False
                         )
+                        
+                        with gr.Row():
+                            edit_rule_idx = gr.Number(label="Rule Index to Edit", value=0, minimum=0)
+                            edit_rule_text = gr.Textbox(label="New Rule Text")
+                            edit_rule_btn = gr.Button("✏️ Edit Rule", variant="secondary")
+                            delete_rule_btn = gr.Button("🗑️ Delete Rule", variant="stop")
                     
                     with gr.Column():
-                        # Scenario preview
+                        # Enhanced scenario preview
                         scenario_preview = gr.Textbox(
                             label="Scenario Prompt Preview",
-                            lines=10,
+                            lines=12,
                             interactive=False
+                        )
+                        
+                        # Scenario completeness
+                        scenario_completeness = gr.Textbox(
+                            label="Scenario Completeness",
+                            interactive=False,
+                            lines=2
                         )
                         
                         # Save/Load controls
@@ -368,9 +429,9 @@ def create_chat_interface():
                             load_scenario_btn = gr.Button("📂 Load")
                             delete_scenario_btn = gr.Button("🗑️ Delete", variant="stop")
             
-            # Prompt Packs Tab
-            with gr.TabItem("📦 Prompt Packs"):
-                gr.Markdown("### Combine Characters & Scenarios")
+            # Enhanced Prompt Packs Tab
+            with gr.TabItem("📦 Enhanced Prompt Packs"):
+                gr.Markdown("### Combine Characters & Scenarios with Advanced Features")
                 
                 with gr.Row():
                     with gr.Column():
@@ -393,6 +454,20 @@ def create_chat_interface():
                             value="None"
                         )
                         
+                        # Template selection for pack
+                        pack_template_dropdown = gr.Dropdown(
+                            choices=prompt_generator.get_available_templates(),
+                            label="Template Style",
+                            value="character_and_scenario"
+                        )
+                        
+                        # Auto-optimization toggle
+                        auto_optimize_toggle = gr.Checkbox(
+                            label="Auto-Optimize on Save",
+                            value=False,
+                            info="Automatically optimize prompts when saving"
+                        )
+                        
                         # Save/Load controls
                         with gr.Row():
                             save_pack_btn = gr.Button("💾 Save Pack", variant="primary")
@@ -404,15 +479,23 @@ def create_chat_interface():
                             delete_pack_btn = gr.Button("🗑️ Delete", variant="stop")
                     
                     with gr.Column():
-                        # Combined prompt preview
+                        # Enhanced combined prompt preview with validation
                         pack_preview = gr.Textbox(
-                            label="Combined System Prompt Preview",
+                            label="Live System Prompt Preview",
                             lines=15,
                             interactive=False
                         )
                         
-                        # AI Optimization button
-                        optimize_prompt_btn = gr.Button("🤖 AI Optimize Prompt", variant="secondary")
+                        # Pack completeness and validation
+                        pack_validation = gr.Textbox(
+                            label="Pack Validation & Suggestions",
+                            lines=4,
+                            interactive=False
+                        )
+                        
+                        # AI Optimization section
+                        gr.Markdown("#### AI Optimization")
+                        optimize_prompt_btn = gr.Button("🤖 Optimize Prompt", variant="secondary")
                         
                         # Optimized prompt display
                         optimized_prompt = gr.Textbox(
@@ -421,10 +504,21 @@ def create_chat_interface():
                             interactive=True,
                             visible=False
                         )
+                        
+                        # Use optimized prompt button
+                        use_optimized_btn = gr.Button(
+                            "✅ Use Optimized Prompt",
+                            variant="primary",
+                            visible=False
+                        )
         
         # Connection status
         with gr.Row():
             status = gr.Markdown("**Status:** Ready to chat! Make sure LM Studio is running on localhost:1234")
+        
+        # Hidden state for managing custom traits and rules
+        custom_traits_state = gr.State({})
+        scenario_rules_state = gr.State([])
         
         # Event handlers
         def handle_send(message, history, system_message, model, temp, max_tok, top_p_val, freq_pen, pres_pen, use_stream):
@@ -450,32 +544,82 @@ def create_chat_interface():
             packs = ["None"] + storage.get_prompt_pack_names()
             return gr.Dropdown(choices=packs, value="None")
         
-        def update_character_preview(name, age, gender, role, empathy, humor, formality, traits, voice_tone, backstory):
+        def add_custom_trait(trait_name, trait_value, current_traits):
+            if trait_name and trait_name not in current_traits:
+                current_traits[trait_name] = trait_value
+                display_text = "\n".join([f"{name}: {value:.1f}" for name, value in current_traits.items()])
+                return current_traits, display_text
+            return current_traits, gr.update()
+        
+        def update_character_preview(name, age, gender, role, empathy, humor, formality, traits, voice_tone, backstory, custom_traits):
             if not name:
-                return ""
+                return "", ""
             
             try:
                 traits_list = [t.strip() for t in traits.split(",") if t.strip()] if traits else []
                 character = Character(
                     name=name,
                     age=int(age) if age else 30,
-                    gender=gender or "unspecified",
+                    gender=Gender(gender),
                     role=role,
                     personality={"empathy": empathy, "humor": humor, "formality": formality},
+                    custom_traits=custom_traits,
                     traits=traits_list,
                     backstory=backstory or "",
-                    voice_tone=voice_tone
+                    voice_tone=VoiceTone(voice_tone)
                 )
-                return character.generate_prompt_section()
+                
+                preview = character.generate_prompt_section()
+                
+                # Calculate completeness
+                completeness_items = []
+                if character.backstory:
+                    completeness_items.append("✅ Backstory")
+                else:
+                    completeness_items.append("❌ Backstory missing")
+                
+                if character.traits:
+                    completeness_items.append("✅ Traits defined")
+                else:
+                    completeness_items.append("❌ No traits defined")
+                
+                if character.custom_traits:
+                    completeness_items.append("✅ Custom personality traits")
+                else:
+                    completeness_items.append("💡 Consider adding custom traits")
+                
+                completeness = "\n".join(completeness_items)
+                
+                return preview, completeness
             except Exception as e:
-                return f"Error: {str(e)}"
+                return f"Error: {str(e)}", "❌ Invalid character data"
         
-        def update_scenario_preview(setting, time_period, objective, conflict, rules):
+        def add_scenario_rule(new_rule, current_rules):
+            if new_rule.strip() and new_rule not in current_rules:
+                current_rules.append(new_rule.strip())
+                display_text = "\n".join([f"{i}: {rule}" for i, rule in enumerate(current_rules)])
+                return current_rules, display_text, ""
+            return current_rules, gr.update(), new_rule
+        
+        def edit_scenario_rule(rule_idx, new_text, current_rules):
+            if 0 <= rule_idx < len(current_rules) and new_text.strip():
+                current_rules[rule_idx] = new_text.strip()
+                display_text = "\n".join([f"{i}: {rule}" for i, rule in enumerate(current_rules)])
+                return current_rules, display_text
+            return current_rules, gr.update()
+        
+        def delete_scenario_rule(rule_idx, current_rules):
+            if 0 <= rule_idx < len(current_rules):
+                current_rules.pop(rule_idx)
+                display_text = "\n".join([f"{i}: {rule}" for i, rule in enumerate(current_rules)])
+                return current_rules, display_text
+            return current_rules, gr.update()
+        
+        def update_scenario_preview(setting, time_period, objective, conflict, rules_list):
             if not setting:
-                return ""
+                return "", ""
             
             try:
-                rules_list = [r.strip() for r in rules.split("\n") if r.strip()] if rules else []
                 scenario = Scenario(
                     setting=setting,
                     time_period=time_period or "present",
@@ -483,25 +627,74 @@ def create_chat_interface():
                     conflict=conflict or "",
                     rules=rules_list
                 )
-                return scenario.generate_prompt_section()
+                
+                preview = scenario.generate_prompt_section()
+                
+                # Calculate completeness
+                completeness_items = []
+                if scenario.conflict:
+                    completeness_items.append("✅ Conflict/tension defined")
+                else:
+                    completeness_items.append("💡 Consider adding conflict")
+                
+                if scenario.rules:
+                    completeness_items.append(f"✅ {len(scenario.rules)} rules defined")
+                else:
+                    completeness_items.append("💡 Consider adding rules")
+                
+                completeness = "\n".join(completeness_items)
+                
+                return preview, completeness
             except Exception as e:
-                return f"Error: {str(e)}"
+                return f"Error: {str(e)}", "❌ Invalid scenario data"
         
-        def save_character(name, age, gender, role, empathy, humor, formality, traits, voice_tone, backstory):
+        def update_pack_preview_and_validation(char_name, scenario_name, template_name):
+            character = None
+            scenario = None
+            
+            if char_name and char_name != "None":
+                character = storage.load_character(f"{char_name}.json")
+            
+            if scenario_name and scenario_name != "None":
+                scenario = storage.load_scenario(f"{scenario_name}.json")
+            
+            if character or scenario:
+                pack = PromptPack(
+                    name="Preview",
+                    character=character,
+                    scenario=scenario,
+                    template_name=template_name
+                )
+                
+                preview = pack.get_preview_prompt(use_templating=True)
+                validation = pack.validate_completeness()
+                
+                validation_text = f"Completeness Score: {validation['completeness_score']:.1%}\n"
+                if validation['issues']:
+                    validation_text += "Issues: " + ", ".join(validation['issues']) + "\n"
+                if validation['suggestions']:
+                    validation_text += "Suggestions: " + ", ".join(validation['suggestions'])
+                
+                return preview, validation_text
+            
+            return "No character or scenario selected", "Select a character and/or scenario to see preview"
+        
+        def save_character(name, age, gender, role, empathy, humor, formality, traits, voice_tone, backstory, custom_traits):
             if not name:
-                return "Error: Character name is required", gr.Dropdown()
+                return "Error: Character name is required", gr.Dropdown(), gr.Dropdown()
             
             try:
                 traits_list = [t.strip() for t in traits.split(",") if t.strip()] if traits else []
                 character = Character(
                     name=name,
                     age=int(age) if age else 30,
-                    gender=gender or "unspecified",
+                    gender=Gender(gender),
                     role=role,
                     personality={"empathy": empathy, "humor": humor, "formality": formality},
+                    custom_traits=custom_traits,
                     traits=traits_list,
                     backstory=backstory or "",
-                    voice_tone=voice_tone
+                    voice_tone=VoiceTone(voice_tone)
                 )
                 storage.save_character(character)
                 char_names = storage.get_character_names()
@@ -515,31 +708,33 @@ def create_chat_interface():
         
         def load_character(char_name):
             if not char_name:
-                return [""] * 9
+                return [""] * 9 + [{}] + [""]
             
             character = storage.load_character(f"{char_name}.json")
             if character:
                 traits_str = ", ".join(character.traits)
+                custom_traits_display = "\n".join([f"{name}: {value:.1f}" for name, value in character.custom_traits.items()])
                 return [
                     character.name,
                     character.age,
-                    character.gender,
+                    character.gender.value,
                     character.role,
                     character.personality.get("empathy", 0.5),
                     character.personality.get("humor", 0.5),
                     character.personality.get("formality", 0.5),
                     traits_str,
-                    character.voice_tone,
-                    character.backstory
+                    character.voice_tone.value,
+                    character.backstory,
+                    character.custom_traits,
+                    custom_traits_display
                 ]
-            return [""] * 9
+            return [""] * 9 + [{}] + [""]
         
-        def save_scenario(setting, time_period, objective, conflict, rules):
+        def save_scenario(setting, time_period, objective, conflict, rules_list):
             if not setting:
-                return "Error: Setting is required", gr.Dropdown()
+                return "Error: Setting is required", gr.Dropdown(), gr.Dropdown()
             
             try:
-                rules_list = [r.strip() for r in rules.split("\n") if r.strip()] if rules else []
                 scenario = Scenario(
                     setting=setting,
                     time_period=time_period or "present",
@@ -559,40 +754,22 @@ def create_chat_interface():
         
         def load_scenario(scenario_name):
             if not scenario_name:
-                return [""] * 5
+                return [""] * 4 + [[]] + [""]
             
             scenario = storage.load_scenario(f"{scenario_name}.json")
             if scenario:
-                rules_str = "\n".join(scenario.rules)
+                rules_display = "\n".join([f"{i}: {rule}" for i, rule in enumerate(scenario.rules)])
                 return [
                     scenario.setting,
                     scenario.time_period,
                     scenario.objective,
                     scenario.conflict,
-                    rules_str
+                    scenario.rules,
+                    rules_display
                 ]
-            return [""] * 5
+            return [""] * 4 + [[]] + [""]
         
-        def update_pack_preview(char_name, scenario_name):
-            character = None
-            scenario = None
-            
-            if char_name and char_name != "None":
-                character = storage.load_character(f"{char_name}.json")
-            
-            if scenario_name and scenario_name != "None":
-                scenario = storage.load_scenario(f"{scenario_name}.json")
-            
-            if character or scenario:
-                pack = PromptPack(
-                    name="Preview",
-                    character=character,
-                    scenario=scenario
-                )
-                return pack.generate_system_prompt()
-            return ""
-        
-        def save_prompt_pack(name, description, char_name, scenario_name):
+        def save_prompt_pack(name, description, char_name, scenario_name, template_name, auto_optimize, model):
             if not name:
                 return "Error: Pack name is required", gr.Dropdown()
             
@@ -610,26 +787,30 @@ def create_chat_interface():
                     name=name,
                     description=description or "",
                     character=character,
-                    scenario=scenario
+                    scenario=scenario,
+                    template_name=template_name,
+                    auto_optimize=auto_optimize
                 )
+                
+                # Auto-optimize if enabled
+                if auto_optimize and (character or scenario):
+                    try:
+                        base_prompt = pack.generate_system_prompt(use_templating=True)
+                        optimized, _, _ = optimize_prompt_with_ai(base_prompt, model)
+                        if optimized and "Error" not in optimized:
+                            pack.optimized_prompt = optimized
+                    except Exception as e:
+                        print(f"Auto-optimization failed: {e}")
+                
                 storage.save_prompt_pack(pack)
                 return f"Prompt pack '{name}' saved successfully!", gr.Dropdown(choices=storage.get_prompt_pack_names())
             except Exception as e:
                 return f"Error saving prompt pack: {str(e)}", gr.Dropdown()
         
-        def load_prompt_pack_to_chat(pack_name):
-            if not pack_name or pack_name == "None":
-                return "You are a helpful, harmless, and honest assistant."
-            
-            pack = storage.load_prompt_pack(f"{pack_name}.json")
-            if pack:
-                return pack.generate_system_prompt()
-            return "You are a helpful, harmless, and honest assistant."
-        
-        def optimize_prompt(prompt_text, model):
+        def optimize_prompt_with_ai(prompt_text, model):
             """Use LM Studio to optimize the system prompt"""
             if not prompt_text:
-                return "", gr.Textbox(visible=False)
+                return "", gr.update(visible=False), gr.update(visible=False)
             
             try:
                 # Create optimization request
@@ -652,10 +833,21 @@ def create_chat_interface():
                 
                 # Extract optimized prompt
                 optimized = completion.choices[0].message.content
-                return optimized, gr.Textbox(visible=True)
+                return optimized, gr.update(visible=True), gr.update(visible=True)
                 
             except Exception as e:
-                return f"Error optimizing prompt: {str(e)}", gr.Textbox(visible=False)
+                return f"Error optimizing prompt: {str(e)}", gr.update(visible=False), gr.update(visible=False)
+        
+        def load_prompt_pack_to_chat(pack_name):
+            if not pack_name or pack_name == "None":
+                return "You are a helpful, harmless, and honest assistant."
+            
+            pack = storage.load_prompt_pack(f"{pack_name}.json")
+            if pack:
+                if pack.optimized_prompt:
+                    return pack.optimized_prompt
+                return pack.generate_system_prompt(use_templating=True)
+            return "You are a helpful, harmless, and honest assistant."
         
         # Wire up events
         
@@ -696,64 +888,154 @@ def create_chat_interface():
         )
         
         # Character events
-        for input_component in [char_name, char_age, char_gender, char_role, char_empathy, char_humor, char_formality, char_traits, char_voice_tone, char_backstory]:
+        add_trait_btn.click(
+            fn=add_custom_trait,
+            inputs=[custom_trait_name, custom_trait_value, custom_traits_state],
+            outputs=[custom_traits_state, custom_traits_display]
+        )
+        
+        for input_component in [char_name, char_age, char_gender, char_role, char_empathy, char_humor, char_formality, char_traits, char_voice_tone, char_backstory, custom_traits_state]:
             input_component.change(
                 fn=update_character_preview,
-                inputs=[char_name, char_age, char_gender, char_role, char_empathy, char_humor, char_formality, char_traits, char_voice_tone, char_backstory],
-                outputs=[char_preview]
+                inputs=[char_name, char_age, char_gender, char_role, char_empathy, char_humor, char_formality, char_traits, char_voice_tone, char_backstory, custom_traits_state],
+                outputs=[char_preview, char_completeness]
             )
         
         save_char_btn.click(
             fn=save_character,
-            inputs=[char_name, char_age, char_gender, char_role, char_empathy, char_humor, char_formality, char_traits, char_voice_tone, char_backstory],
+            inputs=[char_name, char_age, char_gender, char_role, char_empathy, char_humor, char_formality, char_traits, char_voice_tone, char_backstory, custom_traits_state],
             outputs=[status, load_char_dropdown, pack_character_dropdown]
         )
         
         load_char_btn.click(
             fn=load_character,
             inputs=[load_char_dropdown],
-            outputs=[char_name, char_age, char_gender, char_role, char_empathy, char_humor, char_formality, char_traits, char_voice_tone, char_backstory]
+            outputs=[char_name, char_age, char_gender, char_role, char_empathy, char_humor, char_formality, char_traits, char_voice_tone, char_backstory, custom_traits_state, custom_traits_display]
         )
         
         # Scenario events
-        for input_component in [scenario_setting, scenario_time, scenario_objective, scenario_conflict, scenario_rules]:
+        add_rule_btn.click(
+            fn=add_scenario_rule,
+            inputs=[new_rule, scenario_rules_state],
+            outputs=[scenario_rules_state, rules_display, new_rule]
+        )
+        
+        edit_rule_btn.click(
+            fn=edit_scenario_rule,
+            inputs=[edit_rule_idx, edit_rule_text, scenario_rules_state],
+            outputs=[scenario_rules_state, rules_display]
+        )
+        
+        delete_rule_btn.click(
+            fn=delete_scenario_rule,
+            inputs=[edit_rule_idx, scenario_rules_state],
+            outputs=[scenario_rules_state, rules_display]
+        )
+        
+        for input_component in [scenario_setting, scenario_time, scenario_objective, scenario_conflict, scenario_rules_state]:
             input_component.change(
                 fn=update_scenario_preview,
-                inputs=[scenario_setting, scenario_time, scenario_objective, scenario_conflict, scenario_rules],
-                outputs=[scenario_preview]
+                inputs=[scenario_setting, scenario_time, scenario_objective, scenario_conflict, scenario_rules_state],
+                outputs=[scenario_preview, scenario_completeness]
             )
         
         save_scenario_btn.click(
             fn=save_scenario,
-            inputs=[scenario_setting, scenario_time, scenario_objective, scenario_conflict, scenario_rules],
+            inputs=[scenario_setting, scenario_time, scenario_objective, scenario_conflict, scenario_rules_state],
             outputs=[status, load_scenario_dropdown, pack_scenario_dropdown]
         )
         
         load_scenario_btn.click(
             fn=load_scenario,
             inputs=[load_scenario_dropdown],
-            outputs=[scenario_setting, scenario_time, scenario_objective, scenario_conflict, scenario_rules]
+            outputs=[scenario_setting, scenario_time, scenario_objective, scenario_conflict, scenario_rules_state, rules_display]
         )
         
         # Prompt pack events
-        for input_component in [pack_character_dropdown, pack_scenario_dropdown]:
+        for input_component in [pack_character_dropdown, pack_scenario_dropdown, pack_template_dropdown]:
             input_component.change(
-                fn=update_pack_preview,
-                inputs=[pack_character_dropdown, pack_scenario_dropdown],
-                outputs=[pack_preview]
+                fn=update_pack_preview_and_validation,
+                inputs=[pack_character_dropdown, pack_scenario_dropdown, pack_template_dropdown],
+                outputs=[pack_preview, pack_validation]
             )
         
         save_pack_btn.click(
             fn=save_prompt_pack,
-            inputs=[pack_name, pack_description, pack_character_dropdown, pack_scenario_dropdown],
+            inputs=[pack_name, pack_description, pack_character_dropdown, pack_scenario_dropdown, pack_template_dropdown, auto_optimize_toggle, model_dropdown],
             outputs=[status, load_pack_dropdown]
+        )
+        
+        def load_prompt_pack_ui(pack_name):
+            if not pack_name or pack_name == "None":
+                return (
+                    "",  # pack_name
+                    "",  # pack_description
+                    "None",  # pack_character_dropdown
+                    "None",  # pack_scenario_dropdown
+                    "character_and_scenario",  # pack_template_dropdown
+                    False,  # auto_optimize_toggle
+                    "",  # pack_preview
+                    "",  # pack_validation
+                )
+            
+            pack = storage.load_prompt_pack(f"{pack_name}.json")
+            if not pack:
+                return (
+                    "",  # pack_name
+                    "",  # pack_description
+                    "None",  # pack_character_dropdown
+                    "None",  # pack_scenario_dropdown
+                    "character_and_scenario",  # pack_template_dropdown
+                    False,  # auto_optimize_toggle
+                    "",  # pack_preview
+                    "",  # pack_validation
+                )
+            
+            preview = pack.get_preview_prompt(use_templating=True)
+            validation = pack.validate_completeness()
+            validation_text = f"Completeness Score: {validation['completeness_score']:.1%}\n"
+            if validation['issues']:
+                validation_text += "Issues: " + ", ".join(validation['issues']) + "\n"
+            if validation['suggestions']:
+                validation_text += "Suggestions: " + ", ".join(validation['suggestions'])
+            
+            return (
+                pack.name,
+                pack.description or "",
+                pack.character.name if pack.character else "None",
+                pack.scenario.setting if pack.scenario else "None",
+                pack.template_name or "character_and_scenario",
+                pack.auto_optimize,
+                preview,
+                validation_text,
+            )
+        
+        load_pack_btn.click(
+            fn=load_prompt_pack_ui,
+            inputs=[load_pack_dropdown],
+            outputs=[
+                pack_name,
+                pack_description,
+                pack_character_dropdown,
+                pack_scenario_dropdown,
+                pack_template_dropdown,
+                auto_optimize_toggle,
+                pack_preview,
+                pack_validation,
+            ]
         )
         
         # AI Optimization events
         optimize_prompt_btn.click(
-            fn=optimize_prompt,
+            fn=optimize_prompt_with_ai,
             inputs=[pack_preview, model_dropdown],
-            outputs=[optimized_prompt, optimized_prompt]
+            outputs=[optimized_prompt, optimized_prompt, use_optimized_btn]
+        )
+        
+        use_optimized_btn.click(
+            fn=lambda x: x,
+            inputs=[optimized_prompt],
+            outputs=[pack_preview]
         )
     
     return demo
@@ -762,7 +1044,7 @@ if __name__ == "__main__":
     # Create and launch the interface
     demo = create_chat_interface()
     
-    print("🚀 Starting LM Studio Chat Interface with Personas...")
+    print("🚀 Starting LM Studio Chat Interface with Enhanced Personas...")
     print("📋 Make sure LM Studio is running on http://localhost:1234")
     print("🌐 The interface will be available at http://localhost:7861")
     

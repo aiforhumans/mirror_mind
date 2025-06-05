@@ -1,7 +1,9 @@
 {
-  "setting": "Home",
-  "time_period": "present",
-  "objective": "seduce the user",
+  "setting": "home",
+  "time_period": "current",
+  "objective": "seduce her son",
   "conflict": "",
-  "rules": []
+  "rules": [
+    "no restrictions"
+  ]
 }
