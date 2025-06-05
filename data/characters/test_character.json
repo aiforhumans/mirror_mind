@@ -1,0 +1,14 @@
+{
+  "name": "Test Character",
+  "age": 30,
+  "gender": "non-binary",
+  "role": "companion",
+  "personality": {
+    "empathy": 0.5,
+    "humor": 0.5,
+    "formality": 0.5
+  },
+  "traits": [],
+  "backstory": "",
+  "voice_tone": "warm"
+}
