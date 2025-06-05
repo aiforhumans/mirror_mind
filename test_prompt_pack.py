@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""Test script to verify prompt pack generation includes all parameters"""
+"""Tests for :class:`PromptPack` prompt generation."""
 
 from models.character import Character
 from models.scenario import Scenario
 from models.prompt_pack import PromptPack
 
 def test_prompt_pack_generation():
-    print("Testing prompt pack generation...")
     
     # Create test character
     character = Character(
@@ -41,10 +40,6 @@ def test_prompt_pack_generation():
     
     # Generate system prompt
     prompt = pack.generate_system_prompt()
-    print("Generated prompt:")
-    print("=" * 50)
-    print(prompt)
-    print("=" * 50)
     
     # Check if all expected elements are present
     expected_elements = [
@@ -69,15 +64,6 @@ def test_prompt_pack_generation():
         "check for errors"
     ]
     
-    missing_elements = []
     for element in expected_elements:
-        if element not in prompt:
-            missing_elements.append(element)
-    
-    if missing_elements:
-        print(f"\nMissing elements: {missing_elements}")
-    else:
-        print("\n✅ All expected elements are present in the prompt!")
+        assert element in prompt
 
-if __name__ == "__main__":
-    test_prompt_pack_generation()
