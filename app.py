@@ -815,8 +815,8 @@ def create_chat_interface():
             try:
                 # Create optimization request
                 messages = [
-                    {"role": "system", "content": "You are an expert at writing and optimizing system prompts for language models. Your task is to enhance the given prompt to be more effective, natural, and engaging while preserving all the key information and personality traits."},
-                    {"role": "user", "content": f"Please optimize this system prompt while keeping all the essential information and character traits. Make it more natural and engaging:\n\n{prompt_text}"}
+                    {"role": "system", "content": "You are an expert at rewriting and optimizing system prompts for AI language models. Your task is to rewrite the following prompt to improve its natural tone, engagement, and effectiveness, while preserving all core instructions, character traits, and behavioral guidelines. The result must start with **'You are ...'**, phrased as a system prompt, not a message to the user. Do not add any explanation or commentary—only output the improved system prompt as plain text. include rules and guidelines in a clear, concise manner."},
+                    {"role": "user", "content": f"Rewrite and enhance the following system prompt:\n\n{prompt_text}"}
                 ]
                 
                 # Make API call to LM Studio
