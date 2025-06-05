@@ -232,7 +232,23 @@ def save_character(storage, name, age, gender, role, relationship, empathy, humo
 
 def load_character(storage, char_name):
     if not char_name:
-        return ["" ] * 11 + [{}] + [""]
+        return [
+            "",
+            "",
+            "",
+            "",
+            "",
+            0.5,
+            0.5,
+            0.5,
+            0.5,
+            0.5,
+            "",
+            "",
+            "",
+            {},
+            "",
+        ]
 
     character = storage.load_character(f"{char_name}.json")
     if character:
@@ -255,7 +271,23 @@ def load_character(storage, char_name):
             character.custom_traits,
             custom_traits_display,
         ]
-    return ["" ] * 11 + [{}] + [""]
+    return [
+        "",
+        "",
+        "",
+        "",
+        "",
+        0.5,
+        0.5,
+        0.5,
+        0.5,
+        0.5,
+        "",
+        "",
+        "",
+        {},
+        "",
+    ]
 
 
 def save_scenario(storage, setting, time_period, objective, conflict, env_tone, culture, hooks, rules_list):
