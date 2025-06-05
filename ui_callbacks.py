@@ -59,7 +59,7 @@ def add_custom_trait(trait_name, trait_value, current_traits: Dict[str, float]):
     return current_traits, gr.update()
 
 
-def update_character_preview(name, age, gender, role, empathy, humor, formality, traits, voice_tone, backstory, custom_traits):
+def update_character_preview(name, age, gender, role, relationship, empathy, humor, formality, optimism, patience, traits, voice_tone, backstory, custom_traits):
     if not name:
         return "", ""
 
@@ -70,7 +70,9 @@ def update_character_preview(name, age, gender, role, empathy, humor, formality,
             age=int(age) if age else 30,
             gender=Gender(gender),
             role=role,
+            relationship=relationship or None,
             personality={"empathy": empathy, "humor": humor, "formality": formality},
+            mood={"optimism": optimism, "patience": patience},
             custom_traits=custom_traits,
             traits=traits_list,
             backstory=backstory or "",
@@ -125,7 +127,7 @@ def delete_scenario_rule(rule_idx: int, current_rules: List[str]):
     return current_rules, gr.update()
 
 
-def update_scenario_preview(setting, time_period, objective, conflict, rules_list: List[str]):
+def update_scenario_preview(setting, time_period, objective, conflict, env_tone, culture, hooks, rules_list: List[str]):
     if not setting:
         return "", ""
 
@@ -135,6 +137,9 @@ def update_scenario_preview(setting, time_period, objective, conflict, rules_lis
             time_period=time_period or "present",
             objective=objective or "assist the user",
             conflict=conflict or "",
+            environmental_tone=env_tone or "",
+            cultural_influences=culture or "",
+            story_hooks=hooks or "",
             rules=rules_list,
         )
 
@@ -157,20 +162,26 @@ def update_scenario_preview(setting, time_period, objective, conflict, rules_lis
         return f"Error: {str(e)}", "❌ Invalid scenario data"
 
 
-def update_pack_preview_and_validation(storage, char_name, scenario_name, template_name):
+def update_pack_preview_and_validation(storage, char_name, char2_name, scenario_name, template_name, interaction):
     character = None
     scenario = None
 
     if char_name and char_name != "None":
         character = storage.load_character(f"{char_name}.json")
+    if char2_name and char2_name != "None":
+        character2 = storage.load_character(f"{char2_name}.json")
+    else:
+        character2 = None
 
     if scenario_name and scenario_name != "None":
         scenario = storage.load_scenario(f"{scenario_name}.json")
 
-    if character or scenario:
+    if character or character2 or scenario:
         pack = PromptPack(
             name="Preview",
             character=character,
+            secondary_character=character2,
+            character_interaction=interaction or None,
             scenario=scenario,
             template_name=template_name,
         )
@@ -189,7 +200,7 @@ def update_pack_preview_and_validation(storage, char_name, scenario_name, templa
     return "No character or scenario selected", "Select a character and/or scenario to see preview"
 
 
-def save_character(storage, name, age, gender, role, empathy, humor, formality, traits, voice_tone, backstory, custom_traits):
+def save_character(storage, name, age, gender, role, relationship, empathy, humor, formality, optimism, patience, traits, voice_tone, backstory, custom_traits):
     if not name:
         return "Error: Character name is required", gr.Dropdown(), gr.Dropdown()
 
@@ -200,7 +211,9 @@ def save_character(storage, name, age, gender, role, empathy, humor, formality, 
             age=int(age) if age else 30,
             gender=Gender(gender),
             role=role,
+            relationship=relationship or None,
             personality={"empathy": empathy, "humor": humor, "formality": formality},
+            mood={"optimism": optimism, "patience": patience},
             custom_traits=custom_traits,
             traits=traits_list,
             backstory=backstory or "",
@@ -219,7 +232,7 @@ def save_character(storage, name, age, gender, role, empathy, humor, formality, 
 
 def load_character(storage, char_name):
     if not char_name:
-        return ["" ] * 9 + [{}] + [""]
+        return ["" ] * 11 + [{}] + [""]
 
     character = storage.load_character(f"{char_name}.json")
     if character:
@@ -230,19 +243,22 @@ def load_character(storage, char_name):
             character.age,
             character.gender.value,
             character.role,
+            character.relationship or "",
             character.personality.get("empathy", 0.5),
             character.personality.get("humor", 0.5),
             character.personality.get("formality", 0.5),
+            character.mood.get("optimism", 0.5),
+            character.mood.get("patience", 0.5),
             traits_str,
             character.voice_tone.value,
             character.backstory,
             character.custom_traits,
             custom_traits_display,
         ]
-    return ["" ] * 9 + [{}] + [""]
+    return ["" ] * 11 + [{}] + [""]
 
 
-def save_scenario(storage, setting, time_period, objective, conflict, rules_list):
+def save_scenario(storage, setting, time_period, objective, conflict, env_tone, culture, hooks, rules_list):
     if not setting:
         return "Error: Setting is required", gr.Dropdown(), gr.Dropdown()
 
@@ -252,6 +268,9 @@ def save_scenario(storage, setting, time_period, objective, conflict, rules_list
             time_period=time_period or "present",
             objective=objective or "assist the user",
             conflict=conflict or "",
+            environmental_tone=env_tone or "",
+            cultural_influences=culture or "",
+            story_hooks=hooks or "",
             rules=rules_list,
         )
         storage.save_scenario(scenario)
@@ -267,7 +286,7 @@ def save_scenario(storage, setting, time_period, objective, conflict, rules_list
 
 def load_scenario(storage, scenario_name):
     if not scenario_name:
-        return ["" ] * 4 + [[]] + [""]
+        return ["" ] * 7 + [[]] + [""]
 
     scenario = storage.load_scenario(f"{scenario_name}.json")
     if scenario:
@@ -277,10 +296,13 @@ def load_scenario(storage, scenario_name):
             scenario.time_period,
             scenario.objective,
             scenario.conflict,
+            scenario.environmental_tone,
+            scenario.cultural_influences,
+            scenario.story_hooks,
             scenario.rules,
             rules_display,
         ]
-    return ["" ] * 4 + [[]] + [""]
+    return ["" ] * 7 + [[]] + [""]
 
 
 def optimize_prompt_with_ai(chat_bot, prompt_text: str, model: str):
@@ -320,16 +342,19 @@ def optimize_prompt_with_ai(chat_bot, prompt_text: str, model: str):
         return f"Error optimizing prompt: {str(e)}", gr.update(visible=False), gr.update(visible=False)
 
 
-def save_prompt_pack(storage, chat_bot, name, description, char_name, scenario_name, template_name, auto_optimize, model):
+def save_prompt_pack(storage, chat_bot, name, description, char_name, char2_name, scenario_name, template_name, interaction, auto_optimize, model):
     if not name:
         return "Error: Pack name is required", gr.Dropdown()
 
     try:
         character = None
+        character2 = None
         scenario = None
 
         if char_name and char_name != "None":
             character = storage.load_character(f"{char_name}.json")
+        if char2_name and char2_name != "None":
+            character2 = storage.load_character(f"{char2_name}.json")
 
         if scenario_name and scenario_name != "None":
             scenario = storage.load_scenario(f"{scenario_name}.json")
@@ -338,12 +363,14 @@ def save_prompt_pack(storage, chat_bot, name, description, char_name, scenario_n
             name=name,
             description=description or "",
             character=character,
+            secondary_character=character2,
+            character_interaction=interaction or None,
             scenario=scenario,
             template_name=template_name,
             auto_optimize=auto_optimize,
         )
 
-        if auto_optimize and (character or scenario):
+        if auto_optimize and (character or character2 or scenario):
             try:
                 base_prompt = pack.generate_system_prompt(use_templating=True)
                 optimized, _, _ = optimize_prompt_with_ai(chat_bot, base_prompt, model)
@@ -377,7 +404,9 @@ def load_prompt_pack_ui(storage, pack_name):
             "",
             "None",
             "None",
+            "None",
             "character_and_scenario",
+            "",
             False,
             "",
             "",
@@ -390,7 +419,9 @@ def load_prompt_pack_ui(storage, pack_name):
             "",
             "None",
             "None",
+            "None",
             "character_and_scenario",
+            "",
             False,
             "",
             "",
@@ -408,8 +439,10 @@ def load_prompt_pack_ui(storage, pack_name):
         pack.name,
         pack.description or "",
         pack.character.name if pack.character else "None",
+        pack.secondary_character.name if pack.secondary_character else "None",
         pack.scenario.setting if pack.scenario else "None",
         pack.template_name or "character_and_scenario",
+        pack.character_interaction or "",
         pack.auto_optimize,
         preview,
         validation_text,

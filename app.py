@@ -169,6 +169,12 @@ def create_chat_interface():
                             label="Role",
                             value="companion"
                         )
+
+                        char_relationship = gr.Dropdown(
+                            choices=["ally", "rival", "mentor", "friend", "enemy", "partner", "stranger"],
+                            label="Relationship",
+                            value="ally"
+                        )
                         
                         # Enhanced voice tone dropdown
                         char_voice_tone = gr.Dropdown(
@@ -181,6 +187,8 @@ def create_chat_interface():
                         char_empathy = gr.Slider(0.0, 1.0, 0.5, label="Empathy")
                         char_humor = gr.Slider(0.0, 1.0, 0.5, label="Humor")
                         char_formality = gr.Slider(0.0, 1.0, 0.5, label="Formality")
+                        char_optimism = gr.Slider(0.0, 1.0, 0.5, label="Optimism")
+                        char_patience = gr.Slider(0.0, 1.0, 0.5, label="Patience")
                         
                         gr.Markdown("#### Custom Personality Traits")
                         
@@ -259,7 +267,10 @@ def create_chat_interface():
                             label="Conflict/Tension",
                             placeholder="e.g., ancient evil awakening, corporate conspiracy"
                         )
-                        
+                        scenario_env = gr.Textbox(label="Environmental Tone", placeholder="e.g., gloomy, cheerful")
+                        scenario_culture = gr.Textbox(label="Cultural Influences", placeholder="e.g., ancient traditions")
+                        scenario_hooks = gr.Textbox(label="Story Hooks", placeholder="e.g., missing artifacts")
+
                         gr.Markdown("#### Dynamic Rules Management")
                         
                         # Dynamic rule list component
@@ -325,6 +336,15 @@ def create_chat_interface():
                             choices=["None"] + storage.get_character_names(),
                             label="Select Character",
                             value="None"
+                        )
+                        pack_character2_dropdown = gr.Dropdown(
+                            choices=["None"] + storage.get_character_names(),
+                            label="Additional Character",
+                            value="None"
+                        )
+                        pack_interaction = gr.Textbox(
+                            label="Character Interaction",
+                            placeholder="e.g., allies on a quest"
                         )
                         
                         pack_scenario_dropdown = gr.Dropdown(
@@ -463,23 +483,23 @@ def create_chat_interface():
             outputs=[custom_traits_state, custom_traits_display]
         )
         
-        for input_component in [char_name, char_age, char_gender, char_role, char_empathy, char_humor, char_formality, char_traits, char_voice_tone, char_backstory, custom_traits_state]:
+        for input_component in [char_name, char_age, char_gender, char_role, char_relationship, char_empathy, char_humor, char_formality, char_optimism, char_patience, char_traits, char_voice_tone, char_backstory, custom_traits_state]:
             input_component.change(
                 fn=update_char_prev_cb,
-                inputs=[char_name, char_age, char_gender, char_role, char_empathy, char_humor, char_formality, char_traits, char_voice_tone, char_backstory, custom_traits_state],
+                inputs=[char_name, char_age, char_gender, char_role, char_relationship, char_empathy, char_humor, char_formality, char_optimism, char_patience, char_traits, char_voice_tone, char_backstory, custom_traits_state],
                 outputs=[char_preview, char_completeness]
             )
         
         save_char_btn.click(
             fn=save_char_cb,
-            inputs=[char_name, char_age, char_gender, char_role, char_empathy, char_humor, char_formality, char_traits, char_voice_tone, char_backstory, custom_traits_state],
+            inputs=[char_name, char_age, char_gender, char_role, char_relationship, char_empathy, char_humor, char_formality, char_optimism, char_patience, char_traits, char_voice_tone, char_backstory, custom_traits_state],
             outputs=[status, load_char_dropdown, pack_character_dropdown]
         )
         
         load_char_btn.click(
             fn=load_char_cb,
             inputs=[load_char_dropdown],
-            outputs=[char_name, char_age, char_gender, char_role, char_empathy, char_humor, char_formality, char_traits, char_voice_tone, char_backstory, custom_traits_state, custom_traits_display]
+            outputs=[char_name, char_age, char_gender, char_role, char_relationship, char_empathy, char_humor, char_formality, char_optimism, char_patience, char_traits, char_voice_tone, char_backstory, custom_traits_state, custom_traits_display]
         )
         
         # Scenario events
@@ -501,36 +521,36 @@ def create_chat_interface():
             outputs=[scenario_rules_state, rules_display]
         )
         
-        for input_component in [scenario_setting, scenario_time, scenario_objective, scenario_conflict, scenario_rules_state]:
+        for input_component in [scenario_setting, scenario_time, scenario_objective, scenario_conflict, scenario_env, scenario_culture, scenario_hooks, scenario_rules_state]:
             input_component.change(
                 fn=update_scenario_prev_cb,
-                inputs=[scenario_setting, scenario_time, scenario_objective, scenario_conflict, scenario_rules_state],
+                inputs=[scenario_setting, scenario_time, scenario_objective, scenario_conflict, scenario_env, scenario_culture, scenario_hooks, scenario_rules_state],
                 outputs=[scenario_preview, scenario_completeness]
             )
         
         save_scenario_btn.click(
             fn=save_scenario_cb,
-            inputs=[scenario_setting, scenario_time, scenario_objective, scenario_conflict, scenario_rules_state],
+            inputs=[scenario_setting, scenario_time, scenario_objective, scenario_conflict, scenario_env, scenario_culture, scenario_hooks, scenario_rules_state],
             outputs=[status, load_scenario_dropdown, pack_scenario_dropdown]
         )
         
         load_scenario_btn.click(
             fn=load_scenario_cb,
             inputs=[load_scenario_dropdown],
-            outputs=[scenario_setting, scenario_time, scenario_objective, scenario_conflict, scenario_rules_state, rules_display]
+            outputs=[scenario_setting, scenario_time, scenario_objective, scenario_conflict, scenario_env, scenario_culture, scenario_hooks, scenario_rules_state, rules_display]
         )
         
         # Prompt pack events
-        for input_component in [pack_character_dropdown, pack_scenario_dropdown, pack_template_dropdown]:
+        for input_component in [pack_character_dropdown, pack_character2_dropdown, pack_scenario_dropdown, pack_template_dropdown, pack_interaction]:
             input_component.change(
                 fn=update_pack_cb,
-                inputs=[pack_character_dropdown, pack_scenario_dropdown, pack_template_dropdown],
+                inputs=[pack_character_dropdown, pack_character2_dropdown, pack_scenario_dropdown, pack_template_dropdown, pack_interaction],
                 outputs=[pack_preview, pack_validation]
             )
         
         save_pack_btn.click(
             fn=save_pack_cb,
-            inputs=[pack_name, pack_description, pack_character_dropdown, pack_scenario_dropdown, pack_template_dropdown, auto_optimize_toggle, model_dropdown],
+            inputs=[pack_name, pack_description, pack_character_dropdown, pack_character2_dropdown, pack_scenario_dropdown, pack_template_dropdown, pack_interaction, auto_optimize_toggle, model_dropdown],
             outputs=[status, load_pack_dropdown]
         )
         
@@ -542,8 +562,10 @@ def create_chat_interface():
                 pack_name,
                 pack_description,
                 pack_character_dropdown,
+                pack_character2_dropdown,
                 pack_scenario_dropdown,
                 pack_template_dropdown,
+                pack_interaction,
                 auto_optimize_toggle,
                 pack_preview,
                 pack_validation,
