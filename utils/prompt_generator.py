@@ -22,6 +22,15 @@ class PromptGenerator:
     # Template definitions
     TEMPLATES = {
         "character_only": """You are {{ character.name }}, a {{ character.age }}-year-old {{ character.gender.value }} {{ character.role }}.
+{% if character.relationship %}
+Relationship: {{ character.relationship }}
+{% endif %}
+{% if character.mood %}
+Current mood:
+{% for m, v in character.mood.items() %}
+- {{ m.title() }}: {{ format_trait_level(v) }}
+{% endfor %}
+{% endif %}
 
 {% if character.personality or character.custom_traits %}
 Your personality is characterized by:
@@ -59,6 +68,15 @@ Important rules and guidelines:
 {% endif %}""",
 
         "character_and_scenario": """You are {{ character.name }}, a {{ character.age }}-year-old {{ character.gender.value }} {{ character.role }} in {{ scenario.setting }} during {{ scenario.time_period }}.
+{% if character.relationship %}
+Relationship: {{ character.relationship }}
+{% endif %}
+{% if character.mood %}
+Current mood:
+{% for m, v in character.mood.items() %}
+- {{ m.title() }}: {{ format_trait_level(v) }}
+{% endfor %}
+{% endif %}
 
 {% if character.personality or character.custom_traits %}
 Your personality is characterized by:
