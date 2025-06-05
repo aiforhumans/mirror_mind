@@ -1,8 +1,4 @@
 import gradio as gr
-import openai
-from openai import OpenAI
-import json
-import asyncio
 from typing import List, Tuple, Optional
 
 from functools import partial
@@ -29,149 +25,10 @@ from ui_callbacks import (
 
 from utils.storage import Storage
 from utils.prompt_generator import PromptGenerator
+from utils.lmstudio_chat import LMStudioChat
 from models.character import Character, Gender, VoiceTone
 from models.scenario import Scenario
 from models.prompt_pack import PromptPack
-
-class LMStudioChat:
-    def __init__(self):
-        # Initialize OpenAI client pointing to LM Studio
-        self.client = OpenAI(
-            base_url="http://localhost:1234/v1",
-            api_key="lm-studio"  # LM Studio doesn't require a real API key
-        )
-        self.conversation_history = []
-        
-    def get_available_models(self):
-        """Get list of available models from LM Studio"""
-        try:
-            models = self.client.models.list()
-            return [model.id for model in models.data]
-        except Exception as e:
-            print(f"Error fetching models: {e}")
-            return ["default-model"]
-    
-    def clear_history(self):
-        """Clear conversation history"""
-        self.conversation_history = []
-        return [], ""
-    
-    def chat_with_lm_studio(
-        self, 
-        message: str, 
-        history: List[dict], 
-        system_message: str,
-        model: str,
-        temperature: float,
-        max_tokens: int,
-        top_p: float,
-        frequency_penalty: float,
-        presence_penalty: float
-    ):
-        """Send message to LM Studio and get response"""
-        try:
-            # Build messages array for the API
-            messages = []
-            
-            # Add system message if provided
-            if system_message.strip():
-                messages.append({"role": "system", "content": system_message})
-            
-            # Add conversation history
-            for msg in history:
-                messages.append(msg)
-            
-            # Add current user message
-            messages.append({"role": "user", "content": message})
-            
-            # Make API call to LM Studio
-            completion = self.client.chat.completions.create(
-                model=model,
-                messages=messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                top_p=top_p,
-                frequency_penalty=frequency_penalty,
-                presence_penalty=presence_penalty,
-                stream=False
-            )
-            
-            # Extract response
-            response = completion.choices[0].message.content
-            
-            # Update history with user message and assistant response
-            history.append({"role": "user", "content": message})
-            history.append({"role": "assistant", "content": response})
-            
-            return history, ""
-            
-        except Exception as e:
-            error_msg = f"Error: {str(e)}"
-            history.append({"role": "user", "content": message})
-            history.append({"role": "assistant", "content": error_msg})
-            return history, ""
-    
-    def stream_chat_with_lm_studio(
-        self, 
-        message: str, 
-        history: List[dict], 
-        system_message: str,
-        model: str,
-        temperature: float,
-        max_tokens: int,
-        top_p: float,
-        frequency_penalty: float,
-        presence_penalty: float
-    ):
-        """Stream response from LM Studio"""
-        try:
-            # Build messages array for the API
-            messages = []
-            
-            # Add system message if provided
-            if system_message.strip():
-                messages.append({"role": "system", "content": system_message})
-            
-            # Add conversation history
-            for msg in history:
-                messages.append(msg)
-            
-            # Add current user message
-            messages.append({"role": "user", "content": message})
-            
-            # Add user message to history immediately
-            history.append({"role": "user", "content": message})
-            history.append({"role": "assistant", "content": ""})
-            
-            # Make streaming API call to LM Studio
-            stream = self.client.chat.completions.create(
-                model=model,
-                messages=messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                top_p=top_p,
-                frequency_penalty=frequency_penalty,
-                presence_penalty=presence_penalty,
-                stream=True
-            )
-            
-            # Stream the response
-            partial_response = ""
-            for chunk in stream:
-                if chunk.choices[0].delta.content is not None:
-                    partial_response += chunk.choices[0].delta.content
-                    # Update the last message in history with partial response
-                    history[-1]["content"] = partial_response
-                    yield history, ""
-            
-        except Exception as e:
-            error_msg = f"Error: {str(e)}"
-            if history and history[-1]["role"] == "assistant":
-                history[-1]["content"] = error_msg
-            else:
-                history.append({"role": "user", "content": message})
-                history.append({"role": "assistant", "content": error_msg})
-            yield history, ""
 
 def create_chat_interface():
     """Create the Gradio chat interface with enhanced persona and scenario features"""
